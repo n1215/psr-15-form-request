@@ -1,0 +1,56 @@
+{
+    "name": "n1215/psr-15-form-request",
+    "description": "PSR-15/PSR-17 compatible HTTP request validation using Laravel's \\illuminate\\validation.",
+    "keywords": [
+        "psr-17",
+        "psr-15",
+        "psr-7",
+        "http",
+        "web",
+        "validation",
+        "request"
+    ],
+    "type": "project",
+    "homepage": "https://github.com/n1215/psr-15-form-request",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "n1215",
+            "email": "knakae1215@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.1.0",
+        "ext-json": "*",
+        "illuminate/validation": "^5.5",
+        "psr/http-factory": "^1.0",
+        "psr/http-server-handler": "^1.0",
+        "psr/http-server-middleware": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "N1215\\PSR15FormRequest\\": "src"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^6.5",
+        "roave/security-advisories": "dev-master",
+        "zendframework/zend-diactoros": "^2.0",
+        "zendframework/zend-httphandlerrunner": "^1.0"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "N1215\\PSR15FormRequest\\": "tests"
+        }
+    },
+    "scripts": {
+        "test": [
+            "vendor/bin/phpunit"
+        ]
+    },
+    "config": {
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "optimize-autoloader": true
+    }
+}
