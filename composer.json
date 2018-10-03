@@ -10,7 +10,7 @@
         "validation",
         "request"
     ],
-    "type": "project",
+    "type": "library",
     "homepage": "https://github.com/n1215/psr-15-form-request",
     "license": "MIT",
     "authors": [
