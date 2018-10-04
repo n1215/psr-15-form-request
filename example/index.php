@@ -8,9 +8,6 @@ use Illuminate\Translation\Translator;
 use Illuminate\Translation\FileLoader;
 use Illuminate\Validation\Factory;
 use N1215\PSR15FormRequest\FormRequest;
-use N1215\PSR15FormRequest\FormRequestInterface;
-use N1215\PSR15FormRequest\Handlers\ValidatableHandlerInterface;
-use N1215\PSR15FormRequest\Middleware\RequestValidation;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Zend\Diactoros\ResponseFactory;
@@ -18,8 +15,8 @@ use Zend\Diactoros\ServerRequestFactory;
 use Zend\Diactoros\StreamFactory;
 use Zend\HttpHandlerRunner\Emitter\SapiEmitter;
 
-// 1. implement FormRequestInterface. you can use abstract class for convenience.
-class ExampleFormRequest extends FormRequest
+// 1. implement FormRequestMiddlewareInterface. you can use abstract class for convenience.
+class YourFormRequest extends FormRequest
 {
     public function authorize(ServerRequestInterface $request): bool
     {
@@ -46,43 +43,33 @@ class ExampleFormRequest extends FormRequest
     }
 }
 
-// 2. implement ValidatableHandlerInterface. this interface extends PSR-15 RequestHandlerInterface and returns FormRequest.
-class ExampleRequestHandler implements ValidatableHandlerInterface
+// 2. extend FormRequestHandler for your FormRequest
+class YourRequestHandler extends \N1215\PSR15FormRequest\FormRequestHandler
 {
     /**
-     * @var ExampleFormRequest
+     * @param YourFormRequest $formRequest
      */
-    private $formRequest;
-
-    /**
-     * @param ExampleFormRequest $formRequest
-     */
-    public function __construct(ExampleFormRequest $formRequest)
+    public function __construct(YourFormRequest $formRequest)
     {
-        $this->formRequest = $formRequest;
+        parent::__construct($formRequest);
     }
 
-    public function getFormRequest(): FormRequestInterface
-    {
-        return $this->formRequest;
-    }
-
-    public function handle(ServerRequestInterface $request): ResponseInterface
+    protected function innerHandle(ServerRequestInterface $request): ResponseInterface
     {
         return new \Zend\Diactoros\Response\JsonResponse(['message' => 'handled.']);
     }
 }
 
-// 3. instantiate your validatable handler.
+// 3. instantiate your FormRequest middleware.
 $langDirPath = __DIR__ . '/../resources/lang';
 $validationFactory = new Factory(new Translator(new FileLoader(new Filesystem(), $langDirPath), 'en'));
-$formRequest = new ExampleFormRequest($validationFactory);
-$handler = new ExampleRequestHandler($formRequest);
+$errorResponder = new \N1215\PSR15FormRequest\FormRequestErrorResponder(new ResponseFactory(), new StreamFactory());
+$formRequest = new YourFormRequest($validationFactory, $errorResponder);
 
-// 4. instantiate RequestValidation middleware.
-$middleware = new RequestValidation(new ResponseFactory, new StreamFactory());
+// 4. instantiate your FormRequestHandler.
+$handler = new YourRequestHandler($formRequest);
 
 // 5. handle request and emit response.
 $request = ServerRequestFactory::fromGlobals();
-$response = $middleware->process($request, $handler);
+$response = $handler->handle($request);
 (new SapiEmitter())->emit($response);

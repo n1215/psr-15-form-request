@@ -3,15 +3,17 @@ declare(strict_types=1);
 
 namespace N1215\PSR15FormRequest;
 
-use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\Factory;
+use Illuminate\Validation\Validator;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 /**
  * Class FormRequest
- * @package App\Requests
+ * @package App\Middleware
  */
-abstract class FormRequest implements FormRequestInterface
+abstract class FormRequest implements FormRequestMiddlewareInterface
 {
     /**
      * @var Factory
@@ -24,11 +26,66 @@ abstract class FormRequest implements FormRequestInterface
     private $validator;
 
     /**
-     * @param Factory $validatorFactory
+     * @var FormRequestErrorResponder
      */
-    public function __construct(Factory $validatorFactory)
-    {
+    private $errorResponder;
+
+    /**
+     * @param Factory $validatorFactory
+     * @param FormRequestErrorResponder $errorResponder
+     */
+    public function __construct(
+        Factory $validatorFactory,
+        FormRequestErrorResponder $errorResponder
+    ) {
         $this->validatorFactory = $validatorFactory;
+        $this->errorResponder = $errorResponder;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        if (!$this->authorize($request)) {
+            return $this->errorResponder->unauthorized();
+        }
+
+        $this->validator = $this->makeValidator($request);
+        if ($this->fails($request)) {
+            return $this->errorResponder->validationFailed($this->errors());
+        }
+
+        return $handler->handle($request);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function fails(ServerRequestInterface $request): bool
+    {
+        $this->validator = $this->makeValidator($request);
+        return $this->validator->fails();
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function errors(): array
+    {
+        if ($this->validator === null) {
+            throw new \LogicException('execute FormRequest::fails() method before getting errors');
+        }
+
+        return $this->validator->errors()->toArray();
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function authorize(ServerRequestInterface $request): bool
+    {
+        return false;
     }
 
     /**
@@ -57,6 +114,10 @@ abstract class FormRequest implements FormRequestInterface
         return [];
     }
 
+    /**
+     * @param ServerRequestInterface $request
+     * @return Validator
+     */
     private function makeValidator(ServerRequestInterface $request): Validator
     {
         $query = $request->getQueryParams();
@@ -64,32 +125,5 @@ abstract class FormRequest implements FormRequestInterface
         $inputs = \is_array($body) ? array_merge($query, $body) : $query;
 
         return $this->validatorFactory->make($inputs, $this->rules(), $this->messages(), $this->attributes());
-    }
-
-    public function authorize(ServerRequestInterface $request): bool
-    {
-        return false;
-    }
-
-    /**
-     * @param ServerRequestInterface $request
-     * @return bool
-     */
-    public function fails(ServerRequestInterface $request): bool
-    {
-        $this->validator = $this->makeValidator($request);
-        return $this->validator->fails();
-    }
-
-    /**
-     * @return array
-     */
-    public function errors(): array
-    {
-        if ($this->validator === null) {
-            throw new \LogicException('execute FormRequest::fails() method before getting errors');
-        }
-
-        return $this->validator->errors()->toArray();
     }
 }

@@ -8,8 +8,8 @@ use Illuminate\Translation\FileLoader;
 use Illuminate\Translation\Translator;
 use Illuminate\Validation\Factory;
 use N1215\PSR15FormRequest\FormRequest;
-use N1215\PSR15FormRequest\FormRequestInterface;
-use N1215\PSR15FormRequest\Handlers\ValidatableHandlerInterface;
+use N1215\PSR15FormRequest\FormRequestErrorResponder;
+use N1215\PSR15FormRequest\FormRequestHandler;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestFactoryInterface;
@@ -19,7 +19,7 @@ use Zend\Diactoros\ResponseFactory;
 use Zend\Diactoros\ServerRequestFactory;
 use Zend\Diactoros\StreamFactory;
 
-class RequestValidationTest extends TestCase
+class FormRequestHandlerTest extends TestCase
 {
     /**
      * @var Factory
@@ -27,60 +27,61 @@ class RequestValidationTest extends TestCase
     private $validationFactory;
 
     /**
-     * @var RequestValidation
+     * @var FormRequestErrorResponder
      */
-    private $middleware;
+    private $errorResponder;
 
     /**
      * @var ServerRequestFactoryInterface
      */
     private $requestFactory;
 
+
     public function setUp()
     {
         parent::setUp();
         $langDirPath = __DIR__ . '/../../resources/lang';
         $this->validationFactory = new Factory(new Translator(new FileLoader(new Filesystem(), $langDirPath), 'en'));
-        $this->middleware = new RequestValidation(new ResponseFactory, new StreamFactory());
+        $this->errorResponder = new FormRequestErrorResponder(new ResponseFactory, new StreamFactory());
         $this->requestFactory = new ServerRequestFactory();
     }
 
-    public function test_process_returns_unauthorized_status_when_authorization_failed(): void
+    public function test_handle_returns_unauthorized_status_when_authorization_failed(): void
     {
-        $formRequest = new UnauthorizeFormRequest($this->validationFactory);
+        $formRequest = new UnauthorizeFormRequest($this->validationFactory, $this->errorResponder);
         $handler = new SampleHandler($formRequest);
         $request = $this->requestFactory->createServerRequest('GET', 'http://example.com/example');
 
-        $response = $this->middleware->process($request, $handler);
+        $response = $handler->handle($request);
 
         $this->assertEquals(401, $response->getStatusCode());
         $this->assertEquals('application/json', $response->getHeaderLine('Content-Type'));
         $this->assertEquals('{"message":"unauthorized."}', $response->getBody()->__toString());
     }
 
-    public function test_process_returns_unprocesable_entity_status_when_validation_failed(): void
+    public function test_handle_returns_unprocesable_entity_status_when_validation_failed(): void
     {
-        $formRequest = new ValidationFormRequest($this->validationFactory);
+        $formRequest = new ValidationFormRequest($this->validationFactory, $this->errorResponder);
         $handler = new SampleHandler($formRequest);
         $request = $this->requestFactory
             ->createServerRequest('GET', 'http://example.com/example');
 
-        $response = $this->middleware->process($request, $handler);
+        $response = $handler->handle($request);
 
         $this->assertEquals(422, $response->getStatusCode());
         $this->assertEquals('application/json', $response->getHeaderLine('Content-Type'));
         $this->assertEquals('{"message":"validation failed.","errors":{"id":["The ID field is required."]}}', $response->getBody()->__toString());
     }
 
-    public function test_process_returns_original_response_when_validation_success(): void
+    public function test_handle_returns_original_response_when_validation_success(): void
     {
-        $formRequest = new ValidationFormRequest($this->validationFactory);
+        $formRequest = new ValidationFormRequest($this->validationFactory, $this->errorResponder);
         $handler = new SampleHandler($formRequest);
         $request = $this->requestFactory
             ->createServerRequest('GET', 'http://example.com/example')
             ->withQueryParams(['id' => 1]);
 
-        $response = $this->middleware->process($request, $handler);
+        $response = $handler->handle($request);
 
         $this->assertEquals(200, $response->getStatusCode());
         $this->assertEquals('application/json', $response->getHeaderLine('Content-Type'));
@@ -89,21 +90,9 @@ class RequestValidationTest extends TestCase
 
 }
 
-class SampleHandler implements ValidatableHandlerInterface
+class SampleHandler extends FormRequestHandler
 {
-    private $formRequest;
-
-    public function __construct(FormRequestInterface $formRequest)
-    {
-        $this->formRequest = $formRequest;
-    }
-
-    public function getFormRequest(): FormRequestInterface
-    {
-        return $this->formRequest;
-    }
-
-    public function handle(ServerRequestInterface $request): ResponseInterface
+    public function innerHandle(ServerRequestInterface $request): ResponseInterface
     {
         return new JsonResponse(['message' => 'handled.']);
     }
