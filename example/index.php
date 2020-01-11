@@ -10,10 +10,10 @@ use Illuminate\Validation\Factory;
 use N1215\PSR15FormRequest\FormRequest;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use Zend\Diactoros\ResponseFactory;
-use Zend\Diactoros\ServerRequestFactory;
-use Zend\Diactoros\StreamFactory;
-use Zend\HttpHandlerRunner\Emitter\SapiEmitter;
+use Laminas\Diactoros\ResponseFactory;
+use Laminas\Diactoros\ServerRequestFactory;
+use Laminas\Diactoros\StreamFactory;
+use Laminas\HttpHandlerRunner\Emitter\SapiEmitter;
 
 // 1. implement FormRequestMiddlewareInterface. you can use abstract class for convenience.
 class YourFormRequest extends FormRequest
@@ -56,7 +56,7 @@ class YourRequestHandler extends \N1215\PSR15FormRequest\FormRequestHandler
 
     protected function innerHandle(ServerRequestInterface $request): ResponseInterface
     {
-        return new \Zend\Diactoros\Response\JsonResponse(['message' => 'handled.']);
+        return new \Laminas\Diactoros\Response\JsonResponse(['message' => 'handled.']);
     }
 }
 
